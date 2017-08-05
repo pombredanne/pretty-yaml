@@ -7,6 +7,21 @@ PyYAML-based python module to produce pretty and readable YAML-serialized data.
   :backlinks: none
 
 
+Warning
+-------
+
+Prime goal of this module is to produce human-readable output that can be easily
+manipulated and re-used, but maybe with some occasional caveats.
+
+One good example of such "caveat" is that e.g. ``{'foo': '123'}`` will serialize
+to ``foo: 123``, which for PyYAML would be a bug, as 123 will then be read back
+as an integer from that, but here it's a feature.
+
+So please do not rely on the thing to produce output that can always be
+deserialized exactly to what was exported, at least - use PyYAML (e.g. with
+options from the next section) for that.
+
+
 What this module does and why
 -----------------------------
 
@@ -181,20 +196,6 @@ directly use PyYAML regardless, as it won't introduce another (rather pointless
 in that case) dependency and a point of failure.
 
 
-Obligatory warning
-------------------
-
-Prime concern for this module is to chew *simple* types/values gracefully, and
-internally there are some nasty hacks (that I'm not too proud of) used to do
-that, which may not work with more complex serialization cases, possibly even
-producing non-deserializable (but still easily fixable) output.
-
-Again, prime goal is **not** to serialize, say, gigabytes of complex
-document-storage db contents, but rather individual simple human-parseable
-documents, please keep that in mind (and of course, patches for hacks are
-welcome!).
-
-
 Some Tricks
 -----------
 
@@ -236,31 +237,7 @@ Some Tricks
 Installation
 ------------
 
-It's a regular package for Python 2.7 (not 3.X).
-
-Using pip_ is the best way::
-
-  % pip install pyaml
-
-If you don't have it, use::
-
-  % easy_install pip
-  % pip install pyaml
-
-Alternatively (see also `pip docs "installing" section`_)::
-
-  % curl https://raw.github.com/pypa/pip/master/contrib/get-pip.py | python
-  % pip install pyaml
-
-Or, if you absolutely must::
-
-  % easy_install pyaml
-
-But, you really shouldn't do that.
-
-Current-git version can be installed like this::
-
-  % pip install 'git+https://github.com/mk-fg/pretty-yaml.git#egg=pyaml'
+It's a regular package for Python (3.x or 2.x).
 
 Module uses PyYAML_ for processing of the actual YAML files and should pull it
 in as a dependency.
@@ -268,7 +245,54 @@ in as a dependency.
 Dependency on unidecode_ module is optional and should only be necessary if
 same-id objects or recursion is used within serialized data.
 
-.. _pip: http://pip-installer.org/
-.. _pip docs "installing" section: http://www.pip-installer.org/en/latest/installing.html
+Be sure to use python3/python2, pip3/pip2, easy_install-... binaries below,
+based on which python version you want to install the module for, if you have
+several on the system (as is norm these days for py2-py3 transition).
+
+Using pip_ is the best way::
+
+  % pip install pyaml
+
+(add --user option to install into $HOME for current user only)
+
+Or, if you don't have "pip" command::
+
+  % python -m ensurepip
+  % python -m pip install --upgrade pip
+  % python -m pip install pyaml
+
+(same suggestion wrt "install --user" as above)
+
+On a very old systems, one of these might work::
+
+  % curl https://bootstrap.pypa.io/get-pip.py | python
+  % pip install pyaml
+
+  % easy_install pyaml
+
+  % git clone --depth=1 https://github.com/mk-fg/pretty-yaml
+  % cd pretty-yaml
+  % python setup.py install
+
+(all of install-commands here also have --user option,
+see also `pip docs "installing" section`_)
+
+Current-git version can be installed like this::
+
+  % pip install 'git+https://github.com/mk-fg/pretty-yaml#egg=pyaml'
+
+Note that to install stuff to system-wide PATH and site-packages (without
+--user), elevated privileges (i.e. root and su/sudo) are often required.
+
+Use "...install --user", `~/.pydistutils.cfg`_ or virtualenv_ to do unprivileged
+installs into custom paths.
+
+More info on python packaging can be found at `packaging.python.org`_.
+
 .. _PyYAML: http://pyyaml.org/
 .. _unidecode: http://pypi.python.org/pypi/Unidecode
+.. _pip: http://pip-installer.org/
+.. _pip docs "installing" section: http://www.pip-installer.org/en/latest/installing.html
+.. _~/.pydistutils.cfg: http://docs.python.org/install/index.html#distutils-configuration-files
+.. _virtualenv: http://pypi.python.org/pypi/virtualenv
+.. _packaging.python.org: https://packaging.python.org/installing/
