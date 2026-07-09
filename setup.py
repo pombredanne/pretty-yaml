@@ -1,38 +1,30 @@
-#!/usr/bin/env python
+# For compatibility - pyproject.toml should work instead
+# ...but it does not atm, so ends up being parsed to setup() values here anyway
 
-from setuptools import setup, find_packages
-import os, io
+import setuptools, re, pathlib as pl
 
-pkg_root = os.path.dirname(__file__)
+toml_lines = (pl.Path(__file__).parent / 'pyproject.toml').read_text().split('\n')
 
-# Error-handling here is to allow package to be built w/o README included
-try: readme = io.open(os.path.join(pkg_root, 'README.rst'), encoding='utf-8').read()
-except IOError: readme = ''
+def toml_lines_rollup(lines, n=0):
+	if not lines[n:]: return
+	if re.match('\s+', lines[n]):
+		return [lines[n].strip(), *(toml_lines_rollup(lines, n+1) or list())]
+	if tail := toml_lines_rollup(lines, n+1): lines[n] += ' '.join(tail)
+toml_lines_rollup(toml_lines)
 
-setup(
+def toml_str(key):
+	for line, line_next in zip(toml_lines, toml_lines[1:]):
+		if (m := re.fullmatch(r'(\w[\w-]+)\s*=\s*(.*?)\s*', line)) and m[1] == key:
+			return re.findall(r'"([^"]+?)"', m[2])
+	else: raise KeyError(key)
 
-	name = 'pyaml',
-	version = '17.7.2',
-	author = 'Mike Kazantsev',
-	author_email = 'mk.fraggod@gmail.com',
-	license = 'WTFPL',
-	keywords = 'yaml serialization pretty print format human readable readability',
-	url = 'https://github.com/mk-fg/pretty-yaml',
+setup_kws = dict(
+	((k, k) for k in 'name version license description classifiers'.split()),
+	url='Homepage', install_requires='dependencies' )
+setup_kws = dict((k1, toml_str(k2)[0]) for k1, k2 in setup_kws.items())
 
-	description = 'PyYAML-based module to'
-		' produce pretty and readable YAML-serialized data',
-	long_description = readme,
+setup_kws['keywords'] = toml_str('keywords')
+setup_kws['author'], setup_kws['author_email'] = toml_str('authors')
+if fp := getattr(setuptools, 'find_packages', None): setup_kws['packages'] = fp()
 
-	classifiers = [
-		'Development Status :: 4 - Beta',
-		'Intended Audience :: Developers',
-		'Programming Language :: Python',
-		'Programming Language :: Python :: 2.7',
-		'Programming Language :: Python :: 3.5',
-		'Topic :: Software Development',
-		'Topic :: Software Development :: Libraries :: Python Modules' ],
-
-	install_requires = ['PyYAML'],
-	packages = find_packages(),
-	package_data = {'': ['README.txt']},
-	exclude_package_data = {'': ['README.*']} )
+setuptools.setup(**setup_kws)

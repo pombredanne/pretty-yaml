@@ -1,25 +1,42 @@
 pretty-yaml (or pyaml)
 ======================
 
-PyYAML-based python module to produce pretty and readable YAML-serialized data.
+PyYAML_-based python module to produce a bit more pretty and human-readable YAML-serialized data.
+
+This module is for serialization only, see `ruamel.yaml`_ module for literate
+YAML parsing (keeping track of comments, spacing, line/column numbers of values, etc).
+
+(side-note: to dump stuff parsed by ruamel.yaml with this module, use only ``YAML(typ='safe')`` there)
+
+It's a small module, and for projects that only need part of its functionality,
+I'd recommend copy-pasting that in, instead of adding janky dependency.
+
+.. _PyYAML: http://pyyaml.org/
+.. _ruamel.yaml: https://bitbucket.org/ruamel/yaml/
 
 .. contents::
   :backlinks: none
+
+Repository URLs:
+
+- https://github.com/mk-fg/pretty-yaml
+- https://codeberg.org/mk-fg/pretty-yaml
+- https://fraggod.net/code/git/pretty-yaml
 
 
 Warning
 -------
 
-Prime goal of this module is to produce human-readable output that can be easily
-manipulated and re-used, but maybe with some occasional caveats.
-
-One good example of such "caveat" is that e.g. ``{'foo': '123'}`` will serialize
-to ``foo: 123``, which for PyYAML would be a bug, as 123 will then be read back
-as an integer from that, but here it's a feature.
+Prime goal of this module is to produce human-readable output that can be
+easily diff'ed, manipulated and re-used, but maybe with occasional issues.
 
 So please do not rely on the thing to produce output that can always be
-deserialized exactly to what was exported, at least - use PyYAML (e.g. with
-options from the next section) for that.
+deserialized exactly to what was exported, at least - use PyYAML directly
+for that (but maybe with options from the next section).
+
+Output also isn't guaranteed to be stable between module versions,
+as new representation tweaks get added occasionally, but these can usually
+be disabled via module parameters, to get output stability over improvements.
 
 
 What this module does and why
@@ -30,9 +47,10 @@ YAML is generally nice and easy format to read *if* it was written by humans.
 PyYAML can a do fairly decent job of making stuff readable, and the best
 combination of parameters for such output that I've seen so far is probably this one::
 
-  >>> m = [123, 45.67, {1: None, 2: False}, u'some text']
-  >>> data = dict(a=u'asldnsa\nasldpáknsa\n', b=u'whatever text', ma=m, mb=m)
-  >>> yaml.safe_dump(data, sys.stdout, allow_unicode=True, default_flow_style=False)
+  >>> m = [123, 45.67, {1: None, 2: False}, 'some text']
+  >>> data = dict(a='asldnsa\nasldpáknsa\n', b='whatever text', ma=m, mb=m)
+  >>> yaml.safe_dump( data, sys.stdout,
+    width=100, allow_unicode=True, default_flow_style=False )
   a: 'asldnsa
 
     asldpáknsa
@@ -47,27 +65,21 @@ combination of parameters for such output that I've seen so far is probably this
   - some text
   mb: *id001
 
-pyaml tries to improve on that a bit, with the following tweaks:
+pyaml (this module) tries to improve on that a bit, with the following tweaks:
 
-* Most human-friendly representation options in PyYAML (that I know of) get
-  picked as defaults.
+* Most human-friendly representation options in PyYAML (that I know of)
+  are used as defaults - unicode, flow-style, width=100 (old default is 80).
 
-* Does not dump "null" values, if possible, replacing these with just empty
-  strings, which have the same meaning but reduce visual clutter and are easier
-  to edit.
+* Dump "null" values as empty values, if possible, which have the same meaning
+  but reduce visual clutter and are easier to edit.
 
-* Dicts, sets, OrderedDicts, defaultdicts, namedtuples, etc are representable
-  and get sorted on output (OrderedDicts and namedtuples keep their ordering),
-  so that output would be as diff-friendly as possible, and not arbitrarily
-  depend on python internals.
+* Dicts, sets, OrderedDicts, defaultdicts, namedtuples, enums, dataclasses, etc
+  are represented as their safe YAML-compatible base (like int, list or mapping),
+  with mappings key-sorted by default for more diff-friendly output.
 
-  It appears that at least recent PyYAML versions also do such sorting for
-  python dicts.
+* Use shorter and simpler yes/no for booleans.
 
 * List items get indented, as they should be.
-
-* bytestrings that can't be auto-converted to unicode raise error, as yaml has
-  no "binary bytes" (i.e. unix strings) type.
 
 * Attempt is made to pick more readable string representation styles, depending
   on the value, e.g.::
@@ -87,11 +99,11 @@ pyaml tries to improve on that a bit, with the following tweaks:
       VQQKFA52YWxlcm9uLm5vX2lzcDEeMBwGA1UECxMVQ2VydGlmaWNhdGUgQXV0aG9y
     ...
 
-* "force_embed" option to avoid having &id stuff scattered all over the output
-  (which might be beneficial in some cases, hence the option).
+* "force_embed" option (default=yes) to avoid having &id stuff scattered all
+  over the output. Might be more useful to disable it in some specific cases though.
 
-* "&id" anchors, if used, get labels from the keys they get attached to,
-  not just use meaningless enumerators.
+* "&idXYZ" anchors, when needed, get labels from the keys they get attached to,
+  not just meaningless enumerators, e.g. "&users_-_admin" instead.
 
 * "string_val_style" option to only apply to strings that are values, not keys,
   i.e::
@@ -101,35 +113,44 @@ pyaml tries to improve on that a bit, with the following tweaks:
     >>> yaml.safe_dump(data, sys.stdout, allow_unicode=True, default_style='"')
     "key": "value\nasldpáknsa\n"
 
-* Has an option to add vertical spacing (empty lines) between keys on different
-  depths, to make output much more seekable.
+* Add vertical spacing (empty lines) between keys on different depths,
+  to separate long YAML sections in the output visually, make it more seekable.
 
-Result for the (rather meaningless) example above (without any additional
-tweaks)::
+* Discard end-of-document "..." indicators for simple values.
 
-  >>> pyaml.p(data)
+Result for the (rather meaningless) example above::
+
+  >>> pyaml.p(data, force_embed=False, vspacing=dict(split_lines=10))
+
   a: |
     asldnsa
     asldpáknsa
-  b: 'whatever text'
+
+  b: whatever text
+
   ma: &ma
     - 123
     - 45.67
     - 1:
-      2: false
-    - 'some text'
+      2: no
+    - some text
+
   mb: *ma
+
+(force_embed=False enabled deduplication with ``&ma`` anchor,
+vspacing is adjusted to split even this tiny output)
 
 ----------
 
 Extended example::
 
-  >>> pyaml.dump(conf, sys.stdout, vspacing=[2, 1]):
+  >>> pyaml.dump(data, vspacing=dict(split_lines=10))
+
   destination:
 
     encoding:
       xz:
-        enabled: true
+        enabled: yes
         min_size: 5120
         options:
         path_filter:
@@ -142,28 +163,22 @@ Extended example::
     result:
       append_to_file:
       append_to_lafs_dir:
-      print_to_stdout: true
+      print_to_stdout: yes
 
     url: http://localhost:3456/uri
-
 
   filter:
     - /(CVS|RCS|SCCS|_darcs|\{arch\})/$
     - /\.(git|hg|bzr|svn|cvs)(/|ignore|attributes|tags)?$
     - /=(RELEASE-ID|meta-update|update)$
 
-
   http:
-
     ca_certs_files: /etc/ssl/certs/ca-certificates.crt
-
-    debug_requests: false
-
+    debug_requests: no
     request_pool_options:
       cachedConnectionTimeout: 600
       maxPersistentPerHost: 10
-      retryAutomatically: true
-
+      retryAutomatically: yes
 
   logging:
 
@@ -190,30 +205,42 @@ Extended example::
         - console
       level: custom
 
-Note that unless there are many moderately wide and deep trees of data, which
-are expected to be read and edited by people, it might be preferrable to
-directly use PyYAML regardless, as it won't introduce another (rather pointless
-in that case) dependency and a point of failure.
+Note that unless there are many moderately wide and deep trees of data,
+which are expected to be read and edited by people, it might be preferrable
+to directly use PyYAML regardless, as it won't introduce another
+(rather pointless in that case) dependency and a point of failure.
 
 
-Some Tricks
------------
+Features and Tricks
+-------------------
 
 * Pretty-print any yaml or json (yaml subset) file from the shell::
 
-    python -m pyaml /path/to/some/file.yaml
-    curl -s https://status.github.com/api.json | python -m pyaml
+    % python -m pyaml /path/to/some/file.yaml
+    % pyaml < myfile.yml
+    % curl -s https://www.githubstatus.com/api/v2/summary.json | pyaml
 
-* Easier "debug printf" for more complex data (all funcs below are aliases to
-  same thing)::
+  ``pipx install pyaml`` can be a good way to only install "pyaml" command-line script.
+
+* Process and replace json/yaml file in-place::
+
+    % python -m pyaml -r mydata.yml
+
+* Easier "debug printf to YAML" for some complex data::
+
+    pyaml.debug(data)
+    pyaml.debug(node_graph, ifaces, group_vars)
+
+  debug() is an alias for pprint(repr_unknown=True) to dump non-YAML types as well.
+
+  More strict YAML-print funcs (all aliases to same thing)::
 
     pyaml.p(stuff)
     pyaml.pprint(my_data)
     pyaml.pprint('----- HOW DOES THAT BREAKS!?!?', input_data, some_var, more_stuff)
-    pyaml.print(data, file=sys.stderr) # needs "from __future__ import print_function"
+    pyaml.print(data, file=sys.stderr)
 
-* Force all string values to a certain style (see info on these in
-  `PyYAML docs`_)::
+* Force all string values to a certain style (see info on these in `PyYAML docs`_)::
 
     pyaml.dump(many_weird_strings, string_val_style='|')
     pyaml.dump(multiline_words, string_val_style='>')
@@ -222,6 +249,9 @@ Some Tricks
   Using ``pyaml.add_representer()`` (note \*p\*yaml) as suggested in
   `this SO thread`_ (or `github-issue-7`_) should also work.
 
+  See also this `amazing reply to StackOverflow#3790454`_ for everything about
+  the many different string styles in YAML.
+
 * Control indent and width of the results::
 
     pyaml.dump(wide_and_deep, indent=4, width=120)
@@ -229,70 +259,104 @@ Some Tricks
   These are actually keywords for PyYAML Emitter (passed to it from Dumper),
   see more info on these in `PyYAML docs`_.
 
+* Dump multiple yaml documents into a file: ``pyaml.dump_all([data1, data2, data3], dst_file)``
+
+  explicit_start=True is implied, unless overidden by explicit_start=False.
+
+* Control thresholds for vertical spacing of values (0 = always space stuff out),
+  and clump all oneliner ones at the top::
+
+    >>> pyaml.p( data,
+      sort_dicts=pyaml.PYAMLSort.oneline_group,
+      vspacing=dict(split_lines=0, split_count=0) )
+
+    chart:
+      axisCenteredZero: no
+      axisColorMode: text
+      axisLabel: ''
+      axisPlacement: auto
+      barAlignment: 0
+      drawStyle: line
+      ...
+
+      hideFrom:
+        legend: no
+        tooltip: no
+        viz: no
+
+      scaleDistribution:
+        type: linear
+
+      stacking:
+        group: A
+        mode: none
+
+  Or same thing with cli tool ``-v/--vspacing`` option: ``pyaml -v 0/0g mydata.yaml``
+
+* Dump any non-YAML-type values when debugging or to replace later::
+
+    >>> test2 = type('test2', (object,), dict(a='b'))()
+    >>> test3 = type('test3', (object,), dict(__repr__=lambda s: '# test3 repr'+' '*80))()
+    >>> pyaml.p(dict(test1='test1', test2=test2, test3=test3), repr_unknown=True)
+
+    test1: test1
+    test2: <__main__.test2 object at 0x7f00ccd1ade0> # python value
+    test3: '# test3 repr                                       ...[50/92]' # python __main__.test3
+
+  Such unknown-type values get truncated if their repr() is too long, which can
+  be controlled by passing int max-length to repr_unknown instead of bool.
+  pyaml.debug() alias also implies repr_unknown=True flag.
+
 .. _PyYAML docs: http://pyyaml.org/wiki/PyYAMLDocumentation#Scalars
 .. _this SO thread: http://stackoverflow.com/a/7445560
 .. _github-issue-7: https://github.com/mk-fg/pretty-yaml/issues/7
+.. _amazing reply to StackOverflow#3790454:
+  https://stackoverflow.com/questions/3790454/how-do-i-break-a-string-in-yaml-over-multiple-lines/21699210#21699210
 
 
 Installation
 ------------
 
-It's a regular package for Python (3.x or 2.x).
+It's a regular Python 3.8+ module/package, published on PyPI (as pyaml_).
 
-Module uses PyYAML_ for processing of the actual YAML files and should pull it
-in as a dependency.
+Module uses PyYAML_ for processing of the actual YAML files
+and should pull it in as a dependency.
 
-Dependency on unidecode_ module is optional and should only be necessary if
-same-id objects or recursion is used within serialized data.
+Dependency on unidecode_ module is optional and only used with
+force_embed=False keyword (defaults to True), and same-id objects
+or recursion within serialized data - i.e. only when generating
+&some_key_id anchors is actually needed.
+If module is unavailable at runtime, anchor ids might be less like their
+keys and maybe not as nice.
 
-Be sure to use python3/python2, pip3/pip2, easy_install-... binaries below,
-based on which python version you want to install the module for, if you have
-several on the system (as is norm these days for py2-py3 transition).
-
-Using pip_ is the best way::
+Using pip_ is how you generally install it, usually coupled with venv_ usage
+(which will also provide "pip" tool itself)::
 
   % pip install pyaml
-
-(add --user option to install into $HOME for current user only)
-
-Or, if you don't have "pip" command::
-
-  % python -m ensurepip
-  % python -m pip install --upgrade pip
-  % python -m pip install pyaml
-
-(same suggestion wrt "install --user" as above)
-
-On a very old systems, one of these might work::
-
-  % curl https://bootstrap.pypa.io/get-pip.py | python
-  % pip install pyaml
-
-  % easy_install pyaml
-
-  % git clone --depth=1 https://github.com/mk-fg/pretty-yaml
-  % cd pretty-yaml
-  % python setup.py install
-
-(all of install-commands here also have --user option,
-see also `pip docs "installing" section`_)
 
 Current-git version can be installed like this::
 
-  % pip install 'git+https://github.com/mk-fg/pretty-yaml#egg=pyaml'
+  % pip install git+https://github.com/mk-fg/pretty-yaml
 
-Note that to install stuff to system-wide PATH and site-packages (without
---user), elevated privileges (i.e. root and su/sudo) are often required.
+pip will default to installing into currently-active venv, then user's home
+directory (under ``~/.local/lib/python...``), and maybe system-wide when running
+as root (only useful in specialized environments like docker containers).
 
-Use "...install --user", `~/.pydistutils.cfg`_ or virtualenv_ to do unprivileged
-installs into custom paths.
+There are many other python packaging tools - pipenv_, poetry_, pdm_, etc -
+use whatever is most suitable for specific project/environment.
+pipx_ can be used to install command-line script without a module.
 
-More info on python packaging can be found at `packaging.python.org`_.
+More general info on python packaging can be found at `packaging.python.org`_.
 
-.. _PyYAML: http://pyyaml.org/
-.. _unidecode: http://pypi.python.org/pypi/Unidecode
-.. _pip: http://pip-installer.org/
-.. _pip docs "installing" section: http://www.pip-installer.org/en/latest/installing.html
-.. _~/.pydistutils.cfg: http://docs.python.org/install/index.html#distutils-configuration-files
-.. _virtualenv: http://pypi.python.org/pypi/virtualenv
+When changing code, unit tests can be run with ``python -m unittest``
+from a local repository checkout.
+
+.. _pyaml: https://pypi.org/project/pyaml/
+.. _unidecode: https://pypi.python.org/pypi/Unidecode
+.. _pip: https://pip.pypa.io/en/stable/
+.. _venv: https://docs.python.org/3/library/venv.html
+.. _poetry: https://python-poetry.org/
+.. _pipenv: https://pipenv.pypa.io/
+.. _pdm: https://pdm.fming.dev/
+.. _pipx: https://pypa.github.io/pipx/
 .. _packaging.python.org: https://packaging.python.org/installing/

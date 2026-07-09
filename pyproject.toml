@@ -1,0 +1,34 @@
+[project]
+
+name = "pyaml"
+version = "26.7.0"
+
+description = "PyYAML-based module to produce a bit more pretty and readable YAML-serialized data"
+authors = [{name="Mike Kazantsev", email="mk.fraggod@gmail.com"}]
+license = {text="WTFPL"}
+classifiers = [
+	"Development Status :: 4 - Beta",
+	"Intended Audience :: Developers",
+	"License :: Public Domain",
+	"Programming Language :: Python",
+	"Programming Language :: Python :: 3.8",
+	"Topic :: Software Development",
+	"Topic :: Software Development :: Libraries :: Python Modules",
+	"Topic :: Utilities" ]
+keywords = ["yaml", "serialization", "pretty-print", "formatter", "human", "readability"]
+
+requires-python = ">=3.8"
+dependencies = ["PyYAML"]
+dynamic = ["readme"]
+
+[project.urls]
+Homepage = "https://github.com/mk-fg/pretty-yaml"
+
+[tool.setuptools.dynamic]
+readme = {file="README.rst"}
+
+[project.optional-dependencies]
+anchors = ["unidecode"]
+
+[project.scripts]
+pyaml = "pyaml.cli:main"
